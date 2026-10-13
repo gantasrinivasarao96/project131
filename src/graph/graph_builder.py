@@ -21,7 +21,6 @@ def build_dependency_graph(root: Path) -> dict:
         if module_name:
             module_to_file[module_name] = relative_path
 
-    nodes = sorted(imports_by_file)
     edges = set()
 
     for source_file, imported_modules in imports_by_file.items():
@@ -32,7 +31,7 @@ def build_dependency_graph(root: Path) -> dict:
                 edges.add((source_file, target_file))
 
     return {
-        "nodes": nodes,
+        "nodes": sorted(imports_by_file),
         "edges": [
             {"source": source, "target": target}
             for source, target in sorted(edges)
