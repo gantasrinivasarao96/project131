@@ -1,0 +1,136 @@
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+
+def _run_json_command(command: list[str], tool: str) -> dict:
+    """Run a static-analysis tool and parse its JSON output."""
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "timeout",
+            "findings": [],
+            "error": "Analysis exceeded the 120-second time limit.",
+        }
+    except OSError as exc:
+        return {
+            "status": "error",
+            "findings": [],
+            "error": type(exc).__name__,
+        }
+
+    try:
+        data = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return {
+            "status": "error",
+            "findings": [],
+            "error": "Tool did not return valid JSON.",
+        }
+
+    if tool == "ruff":
+        if not isinstance(data, list):
+            return {
+                "status": "error",
+                "findings": [],
+                "error": "Unexpected Ruff JSON format.",
+            }
+
+        findings = data
+        summary = {"finding_count": len(findings)}
+
+    elif tool == "bandit":
+        if not isinstance(data, dict):
+            return {
+                "status": "error",
+                "findings": [],
+                "error": "Unexpected Bandit JSON format.",
+            }
+
+        findings = data.get("results", [])
+        summary = data.get("metrics", {})
+
+    else:
+        return {
+            "status": "error",
+            "findings": [],
+            "error": "Unsupported analysis tool.",
+        }
+
+    return {
+        "status": "completed" if result.returncode in (0, 1) else "error",
+        "exit_code": result.returncode,
+        "findings": findings,
+        "summary": summary,
+    }
+
+
+def run_static_analysis(root: Path) -> dict:
+    """Run available Ruff and Bandit checks on a Python repository."""
+    root = Path(root).resolve()
+
+    if not root.is_dir():
+        raise NotADirectoryError(
+            f"Repository directory not found: {root}"
+        )
+
+    python_files = sorted(root.rglob("*.py"))
+
+    if not python_files:
+        return {
+            "ruff": {
+                "status": "not_applicable",
+                "findings": [],
+            },
+            "bandit": {
+                "status": "not_applicable",
+                "findings": [],
+            },
+        }
+
+    results = {}
+
+    ruff_executable = shutil.which("ruff")
+    if ruff_executable:
+        results["ruff"] = _run_json_command(
+            [
+                ruff_executable,
+                "check",
+                "--output-format=json",
+                str(root),
+            ],
+            "ruff",
+        )
+    else:
+        results["ruff"] = {
+            "status": "unavailable",
+            "findings": [],
+        }
+
+    bandit_executable = shutil.which("bandit")
+    if bandit_executable:
+        results["bandit"] = _run_json_command(
+            [
+                bandit_executable,
+                "-r",
+                str(root),
+                "-f",
+                "json",
+            ],
+            "bandit",
+        )
+    else:
+        results["bandit"] = {
+            "status": "unavailable",
+            "findings": [],
+        }
+
+    return results

@@ -26,7 +26,21 @@ def test_json_report():
         assert loaded_report["graph_metrics"]["node_count"] == 3
         assert loaded_report["graph_metrics"]["edge_count"] == 2
 
-    print("PASS: JSON report generation verified.")
+        assert len(loaded_report["code_metrics"]) == 3
+
+        static_analysis = loaded_report["static_analysis"]
+
+        assert static_analysis["ruff"]["status"] == "completed"
+        assert static_analysis["bandit"]["status"] == "completed"
+
+        assert isinstance(
+            static_analysis["ruff"]["findings"], list
+        )
+        assert isinstance(
+            static_analysis["bandit"]["findings"], list
+        )
+
+    print("PASS: JSON report includes repository, metrics, and static analysis.")
 
 
 if __name__ == "__main__":
