@@ -73,6 +73,21 @@ def test_json_report():
         )
         assert isinstance(recommendations["interpretation"], str)
 
+        # Dependency cycle analysis
+        dependency_cycles = loaded_report["dependency_cycles"]
+
+        assert (
+            dependency_cycles["method"]
+            == "tarjan_strongly_connected_components"
+        )
+        assert isinstance(dependency_cycles["cycles"], list)
+        assert isinstance(dependency_cycles["cycle_group_count"], int)
+        assert (
+            dependency_cycles["cycle_group_count"]
+            == len(dependency_cycles["cycles"])
+        )
+        assert isinstance(dependency_cycles["interpretation"], str)
+
     print(
         "PASS: JSON report includes repository information, "
         "graph metrics, code metrics, static analysis, "

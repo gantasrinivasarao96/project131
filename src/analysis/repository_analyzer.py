@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from src.analysis.code_metrics import calculate_code_metrics
+from src.analysis.dependency_cycles import detect_dependency_cycles
 from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.risk_analysis import calculate_structural_risk
 from src.analysis.static_analysis import run_static_analysis
@@ -20,6 +21,7 @@ def analyze_repository(root: Path) -> dict:
     python_files = sorted(root.rglob("*.py"))
 
     graph = build_dependency_graph(root)
+    dependency_cycles = detect_dependency_cycles(graph)
     graph_metrics = calculate_graph_metrics(graph)
 
     code_metrics = []
@@ -56,6 +58,7 @@ def analyze_repository(root: Path) -> dict:
         "repository": root.name,
         "python_file_count": len(python_files),
         "dependency_graph": graph,
+        "dependency_cycles": dependency_cycles,
         "graph_metrics": graph_metrics,
         "code_metrics": code_metrics,
         "parse_errors": parse_errors,
