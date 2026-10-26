@@ -58,6 +58,21 @@ def test_json_report():
         assert isinstance(structural_risk["thresholds"], dict)
         assert isinstance(structural_risk["interpretation"], str)
 
+        # Refactoring recommendations
+        recommendations = loaded_report["refactoring_recommendations"]
+
+        assert (
+            recommendations["method"]
+            == "rule_based_refactoring_recommendations"
+        )
+        assert isinstance(recommendations["recommendations"], list)
+        assert isinstance(recommendations["recommendation_count"], int)
+        assert (
+            recommendations["recommendation_count"]
+            == len(recommendations["recommendations"])
+        )
+        assert isinstance(recommendations["interpretation"], str)
+
     print(
         "PASS: JSON report includes repository information, "
         "graph metrics, code metrics, static analysis, "
