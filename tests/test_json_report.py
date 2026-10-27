@@ -92,6 +92,11 @@ def test_json_report():
         assert "change_impact" in loaded_report
         assert loaded_report["change_impact"] is None
 
+        # Git history is unavailable for this sample subdirectory
+        git_history = loaded_report["git_history"]
+        assert git_history["status"] == "unavailable"
+        assert isinstance(git_history["reason"], str)
+
     print(
         "PASS: JSON report includes repository information, "
         "graph metrics, code metrics, static analysis, "

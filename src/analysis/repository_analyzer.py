@@ -4,6 +4,7 @@ from src.analysis.code_metrics import calculate_code_metrics
 from src.analysis.change_impact import analyze_change_impact
 from src.analysis.dependency_cycles import detect_dependency_cycles
 from src.analysis.graph_metrics import calculate_graph_metrics
+from src.analysis.git_history import analyze_git_history
 from src.analysis.risk_analysis import calculate_structural_risk
 from src.analysis.static_analysis import run_static_analysis
 from src.graph.graph_builder import build_dependency_graph
@@ -23,6 +24,17 @@ def analyze_repository(
         )
 
     python_files = sorted(root.rglob("*.py"))
+
+    try:
+        git_history = {
+            "status": "completed",
+            **analyze_git_history(root),
+        }
+    except (ValueError, RuntimeError, OSError, TimeoutError) as exc:
+        git_history = {
+            "status": "unavailable",
+            "reason": str(exc),
+        }
 
     graph = build_dependency_graph(root)
     change_impact = (
@@ -67,6 +79,7 @@ def analyze_repository(
         "repository": root.name,
         "python_file_count": len(python_files),
         "dependency_graph": graph,
+        "git_history": git_history,
         "change_impact": change_impact,
         "dependency_cycles": dependency_cycles,
         "graph_metrics": graph_metrics,
