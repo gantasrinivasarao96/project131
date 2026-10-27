@@ -6,6 +6,7 @@ from src.analysis.dependency_cycles import detect_dependency_cycles
 from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.git_history import analyze_git_history
 from src.analysis.risk_analysis import calculate_structural_risk
+from src.prediction.risk_baseline import calculate_risk_baseline
 from src.analysis.static_analysis import run_static_analysis
 from src.graph.graph_builder import build_dependency_graph
 from src.refactoring.recommendation_engine import generate_refactoring_recommendations
@@ -75,6 +76,12 @@ def analyze_repository(
         code_metrics,
     )
 
+    risk_baseline = calculate_risk_baseline(
+        graph,
+        code_metrics,
+        git_history,
+    )
+
     return {
         "repository": root.name,
         "python_file_count": len(python_files),
@@ -87,5 +94,6 @@ def analyze_repository(
         "parse_errors": parse_errors,
         "static_analysis": static_analysis,
         "structural_risk": structural_risk,
+        "risk_baseline": risk_baseline,
         "refactoring_recommendations": refactoring_recommendations,
     }
