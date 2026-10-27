@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from src.analysis.code_metrics import calculate_code_metrics
+from src.analysis.change_impact import analyze_change_impact
 from src.analysis.dependency_cycles import detect_dependency_cycles
 from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.risk_analysis import calculate_structural_risk
@@ -9,7 +10,10 @@ from src.graph.graph_builder import build_dependency_graph
 from src.refactoring.recommendation_engine import generate_refactoring_recommendations
 
 
-def analyze_repository(root: Path) -> dict:
+def analyze_repository(
+    root: Path,
+    changed_module: str | None = None,
+) -> dict:
     """Analyze repository structure, code metrics, and static findings."""
     root = Path(root).resolve()
 
@@ -21,6 +25,11 @@ def analyze_repository(root: Path) -> dict:
     python_files = sorted(root.rglob("*.py"))
 
     graph = build_dependency_graph(root)
+    change_impact = (
+        analyze_change_impact(graph, changed_module)
+        if changed_module is not None
+        else None
+    )
     dependency_cycles = detect_dependency_cycles(graph)
     graph_metrics = calculate_graph_metrics(graph)
 
@@ -58,6 +67,7 @@ def analyze_repository(root: Path) -> dict:
         "repository": root.name,
         "python_file_count": len(python_files),
         "dependency_graph": graph,
+        "change_impact": change_impact,
         "dependency_cycles": dependency_cycles,
         "graph_metrics": graph_metrics,
         "code_metrics": code_metrics,

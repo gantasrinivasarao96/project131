@@ -88,6 +88,10 @@ def test_json_report():
         )
         assert isinstance(dependency_cycles["interpretation"], str)
 
+        # Optional change-impact analysis
+        assert "change_impact" in loaded_report
+        assert loaded_report["change_impact"] is None
+
     print(
         "PASS: JSON report includes repository information, "
         "graph metrics, code metrics, static analysis, "
