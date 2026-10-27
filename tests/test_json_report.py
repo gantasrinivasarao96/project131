@@ -58,6 +58,31 @@ def test_json_report():
         assert isinstance(structural_risk["thresholds"], dict)
         assert isinstance(structural_risk["interpretation"], str)
 
+        # Rule-based risk review baseline
+        risk_baseline = loaded_report["risk_baseline"]
+
+        assert (
+            risk_baseline["method"]
+            == "transparent_rule_based_review_baseline"
+        )
+        assert (
+            risk_baseline["label"]
+            == "review_priority_not_defect_probability"
+        )
+        assert risk_baseline["module_count"] == 3
+        assert len(risk_baseline["results"]) == 3
+
+        for item in risk_baseline["results"]:
+            assert item["review_priority"] in {
+                "low",
+                "medium",
+                "high",
+            }
+            assert 0 <= item["review_score"] <= 4
+            assert isinstance(item["evidence"], list)
+
+        assert isinstance(risk_baseline["interpretation"], str)
+
         # Refactoring recommendations
         recommendations = loaded_report["refactoring_recommendations"]
 
