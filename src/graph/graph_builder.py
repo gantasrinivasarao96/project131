@@ -3,22 +3,36 @@ from pathlib import Path
 from src.graph.dependency_extractor import extract_repository_imports
 
 
+def _module_names(relative_path: str) -> set[str]:
+    """Return importable module names for a repository-relative Python file."""
+    path = Path(relative_path)
+
+    if path.name == "__init__.py":
+        parts = path.parent.parts
+    else:
+        parts = path.with_suffix("").parts
+
+    names = set()
+
+    if parts:
+        names.add(".".join(parts))
+
+    # Support the common src/package layout:
+    # src/package/module.py -> package.module
+    if parts and parts[0] == "src" and len(parts) > 1:
+        names.add(".".join(parts[1:]))
+
+    return names
+
+
 def build_dependency_graph(root: Path) -> dict:
     """Build a directed graph from local Python module imports."""
     root = root.resolve()
     imports_by_file = extract_repository_imports(root)
-
     module_to_file = {}
 
     for relative_path in imports_by_file:
-        path = Path(relative_path)
-
-        if path.name == "__init__.py":
-            module_name = ".".join(path.parent.parts)
-        else:
-            module_name = ".".join(path.with_suffix("").parts)
-
-        if module_name:
+        for module_name in _module_names(relative_path):
             module_to_file[module_name] = relative_path
 
     edges = set()
