@@ -59,3 +59,41 @@ def test_src_layout_dependency_resolution():
 if __name__ == "__main__":
     test_sample_dependency_graph()
     test_src_layout_dependency_resolution()
+
+
+def test_relative_import_dependency_resolution():
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        package = root / "src" / "sample"
+        package.mkdir(parents=True)
+
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "simple.py").write_text(
+            "def add_one(number):\n"
+            "    return number + 1\n",
+            encoding="utf-8",
+        )
+        (package / "helper.py").write_text(
+            "from .simple import add_one\n",
+            encoding="utf-8",
+        )
+
+        graph = build_dependency_graph(root)
+        edges = {
+            (edge["source"], edge["target"])
+            for edge in graph["edges"]
+        }
+
+        expected = (
+            "src/sample/helper.py",
+            "src/sample/simple.py",
+        )
+        assert expected in edges, edges
+
+    print("PASS: Relative package import resolves to the correct file.")
+
+
+if __name__ == "__main__":
+    test_sample_dependency_graph()
+    test_src_layout_dependency_resolution()
+    test_relative_import_dependency_resolution()

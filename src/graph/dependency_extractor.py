@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def extract_imports(file_path: Path) -> set[str]:
-    """Extract imported module names from a Python source file."""
+    """Extract absolute and relative module imports from Python source."""
     try:
         source = file_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(file_path))
@@ -18,7 +18,17 @@ def extract_imports(file_path: Path) -> set[str]:
                 imports.add(alias.name)
 
         elif isinstance(node, ast.ImportFrom):
-            if node.module:
+            if node.level:
+                prefix = "." * node.level
+
+                if node.module:
+                    imports.add(prefix + node.module)
+                else:
+                    for alias in node.names:
+                        if alias.name != "*":
+                            imports.add(prefix + alias.name)
+
+            elif node.module:
                 imports.add(node.module)
 
     return imports
