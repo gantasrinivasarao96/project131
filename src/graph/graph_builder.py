@@ -44,8 +44,6 @@ def _resolve_relative_import(
     level = len(imported_module) - len(imported_module.lstrip("."))
     module_tail = imported_module[level:]
 
-    # One leading dot means the current package; each additional dot
-    # moves up one package level.
     if level > len(package_parts):
         return None
 
@@ -71,6 +69,8 @@ def build_dependency_graph(root: Path) -> dict:
     edges = set()
 
     for source_file, imported_modules in imports_by_file.items():
+        resolved_targets = []
+
         for imported_module in imported_modules:
             resolved_module = _resolve_relative_import(
                 source_file, imported_module
@@ -81,7 +81,24 @@ def build_dependency_graph(root: Path) -> dict:
             target_file = module_to_file.get(resolved_module)
 
             if target_file and target_file != source_file:
-                edges.add((source_file, target_file))
+                resolved_targets.append((resolved_module, target_file))
+
+        for module_name, target_file in resolved_targets:
+            target_is_package_init = (
+                Path(target_file).name == "__init__.py"
+            )
+
+            has_more_specific_module = any(
+                other_name.startswith(module_name + ".")
+                and other_file != target_file
+                and Path(other_file).name != "__init__.py"
+                for other_name, other_file in resolved_targets
+            )
+
+            if target_is_package_init and has_more_specific_module:
+                continue
+
+            edges.add((source_file, target_file))
 
     return {
         "nodes": sorted(imports_by_file),
