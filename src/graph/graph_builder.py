@@ -80,24 +80,48 @@ def build_dependency_graph(root: Path) -> dict:
 
             target_file = module_to_file.get(resolved_module)
 
+            # For "from . import name", resolve a local submodule first.
+            # If no submodule exists, the name may be a package attribute
+            # provided by the package initializer.
+            if target_file is None and imported_module.startswith("."):
+                path = Path(source_file)
+                if path.name == "__init__.py":
+                    package_parts = list(path.parent.parts)
+                else:
+                    package_parts = list(path.with_suffix("").parts[:-1])
+
+                if package_parts and package_parts[0] == "src":
+                    package_parts = package_parts[1:]
+
+                level = len(imported_module) - len(
+                    imported_module.lstrip(".")
+                )
+                if level <= len(package_parts):
+                    if level > 1:
+                        package_parts = package_parts[:-(level - 1)]
+
+                    module_tail = imported_module[level:]
+                    if module_tail:
+                        package_parts.extend(module_tail.split("."))
+
+                    package_name = ".".join(package_parts)
+                    target_file = module_to_file.get(package_name)
+
+                    if target_file is None:
+                        # Fall back to a parent package initializer.
+                        package_parts_for_init = package_name.split(".")
+                        while package_parts_for_init:
+                            candidate = ".".join(package_parts_for_init)
+                            target_file = module_to_file.get(candidate)
+                            if target_file is not None:
+                                break
+                            package_parts_for_init.pop()
+
+
             if target_file and target_file != source_file:
                 resolved_targets.append((resolved_module, target_file))
 
         for module_name, target_file in resolved_targets:
-            target_is_package_init = (
-                Path(target_file).name == "__init__.py"
-            )
-
-            has_more_specific_module = any(
-                other_name.startswith(module_name + ".")
-                and other_file != target_file
-                and Path(other_file).name != "__init__.py"
-                for other_name, other_file in resolved_targets
-            )
-
-            if target_is_package_init and has_more_specific_module:
-                continue
-
             edges.add((source_file, target_file))
 
     return {

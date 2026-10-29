@@ -28,3 +28,12 @@ htmlcov/
 *.tmp
 *.log
 .DS_Store
+
+# Generated analysis reports
+reports/
+
+# Temporary validation fixtures
+temp_relative_import_check/
+
+# Local backup files
+*.bak

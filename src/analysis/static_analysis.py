@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -98,7 +99,15 @@ def run_static_analysis(root: Path) -> dict:
 
     results = {}
 
-    ruff_executable = shutil.which("ruff")
+    # Prefer tools installed in the active Python environment.
+    environment_bin = Path(sys.prefix) / "bin"
+
+    ruff_candidate = environment_bin / "ruff"
+    ruff_executable = (
+        str(ruff_candidate)
+        if ruff_candidate.is_file()
+        else shutil.which("ruff")
+    )
     if ruff_executable:
         results["ruff"] = _run_json_command(
             [
@@ -115,7 +124,12 @@ def run_static_analysis(root: Path) -> dict:
             "findings": [],
         }
 
-    bandit_executable = shutil.which("bandit")
+    bandit_candidate = environment_bin / "bandit"
+    bandit_executable = (
+        str(bandit_candidate)
+        if bandit_candidate.is_file()
+        else shutil.which("bandit")
+    )
     if bandit_executable:
         results["bandit"] = _run_json_command(
             [
