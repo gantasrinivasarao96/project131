@@ -5,7 +5,6 @@ import stat
 import zipfile
 from pathlib import Path, PurePosixPath
 
-
 DEFAULT_MAX_FILES = 5000
 DEFAULT_MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
 

@@ -22,8 +22,8 @@ def detect_dependency_cycles(graph: dict) -> dict:
 
         adjacency[source].append(target)
 
-    for node in adjacency:
-        adjacency[node] = sorted(set(adjacency[node]))
+    for node, neighbors in adjacency.items():
+        adjacency[node] = sorted(set(neighbors))
 
     index = 0
     indices = {}

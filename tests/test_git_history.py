@@ -1,5 +1,5 @@
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from src.analysis.git_history import analyze_git_history

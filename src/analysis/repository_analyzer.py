@@ -1,14 +1,14 @@
 from pathlib import Path
 
-from src.analysis.code_metrics import calculate_code_metrics
 from src.analysis.change_impact import analyze_change_impact
+from src.analysis.code_metrics import calculate_code_metrics
 from src.analysis.dependency_cycles import detect_dependency_cycles
-from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.git_history import analyze_git_history
+from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.risk_analysis import calculate_structural_risk
-from src.prediction.risk_baseline import calculate_risk_baseline
 from src.analysis.static_analysis import run_static_analysis
 from src.graph.graph_builder import build_dependency_graph
+from src.prediction.risk_baseline import calculate_risk_baseline
 from src.refactoring.recommendation_engine import generate_refactoring_recommendations
 
 

@@ -1,9 +1,9 @@
 """Extract Git history and identify files that change together."""
 
+import subprocess
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
-import subprocess
 
 
 def analyze_git_history(
