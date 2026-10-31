@@ -1,3 +1,5 @@
+"""Orchestrate repository analysis for Project 131."""
+
 from pathlib import Path
 
 from src.analysis.change_impact import analyze_change_impact
@@ -8,13 +10,17 @@ from src.analysis.graph_metrics import calculate_graph_metrics
 from src.analysis.risk_analysis import calculate_structural_risk
 from src.analysis.static_analysis import run_static_analysis
 from src.graph.graph_builder import build_dependency_graph
+from src.prediction.prefix_features import extract_prefix_features
 from src.prediction.risk_baseline import calculate_risk_baseline
-from src.refactoring.recommendation_engine import generate_refactoring_recommendations
+from src.refactoring.recommendation_engine import (
+    generate_refactoring_recommendations,
+)
 
 
 def analyze_repository(
     root: Path,
     changed_module: str | None = None,
+    fixing_commit: str | None = None,
 ) -> dict:
     """Analyze repository structure, code metrics, and static findings."""
     root = Path(root).resolve()
@@ -38,11 +44,13 @@ def analyze_repository(
         }
 
     graph = build_dependency_graph(root)
+
     change_impact = (
         analyze_change_impact(graph, changed_module)
         if changed_module is not None
         else None
     )
+
     dependency_cycles = detect_dependency_cycles(graph)
     graph_metrics = calculate_graph_metrics(graph)
 
@@ -71,9 +79,11 @@ def analyze_repository(
         code_metrics,
     )
 
-    refactoring_recommendations = generate_refactoring_recommendations(
-        graph,
-        code_metrics,
+    refactoring_recommendations = (
+        generate_refactoring_recommendations(
+            graph,
+            code_metrics,
+        )
     )
 
     risk_baseline = calculate_risk_baseline(
@@ -81,6 +91,13 @@ def analyze_repository(
         code_metrics,
         git_history,
     )
+
+    prefix_features = None
+    if fixing_commit is not None:
+        prefix_features = extract_prefix_features(
+            root,
+            fixing_commit,
+        )
 
     return {
         "repository": root.name,
@@ -95,5 +112,8 @@ def analyze_repository(
         "static_analysis": static_analysis,
         "structural_risk": structural_risk,
         "risk_baseline": risk_baseline,
-        "refactoring_recommendations": refactoring_recommendations,
+        "refactoring_recommendations": (
+            refactoring_recommendations
+        ),
+        "prefix_features": prefix_features,
     }

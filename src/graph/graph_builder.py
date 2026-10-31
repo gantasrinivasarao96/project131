@@ -1,133 +1,138 @@
+
 from pathlib import Path
 
 from src.graph.dependency_extractor import extract_repository_imports
 
+EXCLUDED_DIRS = {
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "site-packages",
+    "node_modules",
+    "build",
+    "dist",
+}
 
-def _module_names(relative_path: str) -> set[str]:
-    """Return importable module names for a repository-relative file."""
-    path = Path(relative_path)
 
-    if path.name == "__init__.py":
-        parts = path.parent.parts
-    else:
-        parts = path.with_suffix("").parts
+def _is_excluded(path: Path) -> bool:
+    """Return True if any path component is an excluded directory."""
+    return any(part in EXCLUDED_DIRS for part in path.parts)
 
-    names = set()
 
-    if parts:
-        names.add(".".join(parts))
+def _module_names(root: Path, file_path: Path) -> set[str]:
+    """Return importable module names for a Python file."""
+    relative = file_path.relative_to(root).with_suffix("")
+    parts = list(relative.parts)
 
-    if parts and parts[0] == "src" and len(parts) > 1:
+    if parts[-1] == "__init__":
+        parts.pop()
+
+    if not parts:
+        return set()
+
+    names = {".".join(parts)}
+
+    # Also support imports that omit the repository's top-level package.
+    if len(parts) > 1:
         names.add(".".join(parts[1:]))
 
     return names
 
 
 def _resolve_relative_import(
-    source_file: str,
+    module_name: str,
     imported_module: str,
+    level: int,
 ) -> str | None:
-    """Resolve a relative import to its package-qualified module name."""
-    if not imported_module.startswith("."):
+    """Resolve a relative import to an absolute module name."""
+    if level <= 0:
         return imported_module
 
-    path = Path(source_file)
-
-    if path.name == "__init__.py":
-        package_parts = list(path.parent.parts)
+    package_parts = module_name.split(".")
+    if package_parts and package_parts[-1] == "__init__":
+        package_parts.pop()
     else:
-        package_parts = list(path.with_suffix("").parts[:-1])
+        package_parts.pop()
 
-    if package_parts and package_parts[0] == "src":
-        package_parts = package_parts[1:]
-
-    level = len(imported_module) - len(imported_module.lstrip("."))
-    module_tail = imported_module[level:]
-
-    if level > len(package_parts):
+    remove_count = level - 1
+    if remove_count > len(package_parts):
         return None
 
-    if level > 1:
-        package_parts = package_parts[:-(level - 1)]
+    if remove_count:
+        package_parts = package_parts[:-remove_count]
 
-    if module_tail:
-        package_parts.extend(module_tail.split("."))
+    if imported_module:
+        package_parts.extend(imported_module.split("."))
 
     return ".".join(package_parts) or None
 
 
 def build_dependency_graph(root: Path) -> dict:
-    """Build a directed graph from local Python module imports."""
-    root = root.resolve()
-    imports_by_file = extract_repository_imports(root)
-    module_to_file = {}
+    """Build a directed import dependency graph for a Python repository.
 
-    for relative_path in imports_by_file:
-        for module_name in _module_names(relative_path):
+    Nodes represent Python files. Edges represent imports between files
+    inside the repository. Generated and third-party directories are excluded.
+    """
+    root = root.resolve()
+
+    # Extract imports, then discard paths from excluded directories.
+    imports_by_file = extract_repository_imports(root)
+    imports_by_file = {
+        relative_path: imports
+        for relative_path, imports in imports_by_file.items()
+        if not _is_excluded(Path(relative_path))
+    }
+
+    module_to_file: dict[str, str] = {}
+    for relative_path in sorted(imports_by_file):
+        file_path = root / relative_path
+        for module_name in _module_names(root, file_path):
             module_to_file[module_name] = relative_path
 
-    edges = set()
+    nodes = sorted(imports_by_file)
+    edges: list[dict[str, str]] = []
 
-    for source_file, imported_modules in imports_by_file.items():
-        resolved_targets = []
+    for relative_path in nodes:
+        file_path = root / relative_path
+        module_names = _module_names(root, file_path)
 
-        for imported_module in imported_modules:
-            resolved_module = _resolve_relative_import(
-                source_file, imported_module
-            )
-            if resolved_module is None:
-                continue
+        for imported in imports_by_file[relative_path]:
+            target_module = imported
 
-            target_file = module_to_file.get(resolved_module)
-
-            # For "from . import name", resolve a local submodule first.
-            # If no submodule exists, the name may be a package attribute
-            # provided by the package initializer.
-            if target_file is None and imported_module.startswith("."):
-                path = Path(source_file)
-                if path.name == "__init__.py":
-                    package_parts = list(path.parent.parts)
-                else:
-                    package_parts = list(path.with_suffix("").parts[:-1])
-
-                if package_parts and package_parts[0] == "src":
-                    package_parts = package_parts[1:]
-
-                level = len(imported_module) - len(
-                    imported_module.lstrip(".")
+            # Handle relative imports using the current file's module name.
+            for module_name in module_names:
+                resolved = _resolve_relative_import(
+                    module_name,
+                    imported,
+                    0,
                 )
-                if level <= len(package_parts):
-                    if level > 1:
-                        package_parts = package_parts[:-(level - 1)]
+                if resolved:
+                    target_module = resolved
+                    break
 
-                    module_tail = imported_module[level:]
-                    if module_tail:
-                        package_parts.extend(module_tail.split("."))
+            target_file = module_to_file.get(target_module)
+            if target_file and target_file != relative_path:
+                edges.append(
+                    {
+                        "source": relative_path,
+                        "target": target_file,
+                    }
+                )
 
-                    package_name = ".".join(package_parts)
-                    target_file = module_to_file.get(package_name)
-
-                    if target_file is None:
-                        # Fall back to a parent package initializer.
-                        package_parts_for_init = package_name.split(".")
-                        while package_parts_for_init:
-                            candidate = ".".join(package_parts_for_init)
-                            target_file = module_to_file.get(candidate)
-                            if target_file is not None:
-                                break
-                            package_parts_for_init.pop()
-
-
-            if target_file and target_file != source_file:
-                resolved_targets.append((resolved_module, target_file))
-
-        for module_name, target_file in resolved_targets:
-            edges.add((source_file, target_file))
+    # Deduplicate and sort for deterministic output.
+    unique_edges = {
+        (edge["source"], edge["target"])
+        for edge in edges
+    }
 
     return {
-        "nodes": sorted(imports_by_file),
+        "nodes": nodes,
         "edges": [
             {"source": source, "target": target}
-            for source, target in sorted(edges)
+            for source, target in sorted(unique_edges)
         ],
     }
